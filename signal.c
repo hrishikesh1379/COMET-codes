@@ -50,13 +50,14 @@
    }
 
   }
-  float finalCapValues[1024] = {0.0};
-  float indexArray[1024];
-  for (int i = 0; i<1024; i++){
-    finalCapValues[i] = newval[0][i][527];
-    indexArray[i] = i+1;
-  }
-  TGraph *finalHist = new TGraph(1024,indexArray,finalCapValues);
+  float y[1024] = {0.0};
+  float x[1024];
+
+  for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
+     x[i-cidx1[0]] = i-cidx1[0];
+     y[i-cidx1[0]] = newval[0][i-cidx1[0]][31];
+   }
+  TGraph *finalHist = new TGraph(1024,x,y);
   finalHist->Draw("AC*");
   myFile1.Close(); // Close file
 }
