@@ -90,7 +90,7 @@
     }
 
     for (int l = 1; l < 6; l++){
-      for (int iEnt = 0; iEnt < nEntries1; iEnt++) {
+      for (int iEnt = 0; iEnt < nEntries0; iEnt++) {
         for (int m = 0; m < 1024; m++){
           if (values[l][m][iEnt] > maxval[l][iEnt]){
             maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
