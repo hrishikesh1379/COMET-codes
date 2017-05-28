@@ -3,6 +3,7 @@
 #include "TFile.h"
 #include "TH1F.h"
 #include "TCanvas.h"
+#include <map>
 
 
   TFile myFile("baselinesamples2.root"); // Open the file
@@ -50,6 +51,28 @@
       }
     }
   }
+
+
+  
+int m = 2;
+for (int l = 0; l < 8; l++) {
+  std::map <int, int> cap;
+  int max = -10000000;
+  for(int iEnt = 0; iEnt < nEntries; iEnt++) {
+    if (!cap.count(capval[l][m][iEnt])) {
+      cap[capval[l][m][iEnt]] = 1;
+    }
+    else {
+      cap[capval[l][m][iEnt]]++;
+    }
+    cout << l << " " << iEnt << " " << cap[capval[l][m][iEnt]] << endl;
+    if (cap[capval[l][m][iEnt]] > max)
+      max = cap[capval[l][m][iEnt]];
+  }
+  delete(c)
+}
+
+
   /*
   for (int l = 0; l < 32; l++){
     for (int m = 0; m < 1024; m++) {
@@ -60,6 +83,7 @@
     }
   }
   */
+/*
   int binmax = 0;
   char buffer [8];
   TH1I *h[32][1024];
@@ -74,12 +98,12 @@
       binmax = h[l][m].GetMaximumBin();
       capmax[l][m] = h[l][m]->GetXaxis()->GetBinCenter(binmax);
     }
-  }
+  }*/
 
 
   //  gROOT->Reset();
   // Open the file for writing
-
+/*
   TFile myFile1("baselinesamples2.root"); // Open the file
   TTree* myTree1 = (TTree*) myFile1.Get("tree"); // Get the tree from the file
 
@@ -154,4 +178,5 @@
    g[j]->Draw("AC*");
  }
 
+*/
 }
