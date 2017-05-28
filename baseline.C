@@ -12,7 +12,7 @@
   int wf[32][1024];        // An array of the wf values
   int cidx[4];       // An array of the cidx values
   int capval[32][1024][10000];
-  float capmean[32][1024] = {0.0};
+  float capmax[32][1024] = {0.0};
 
   // Linking the local variables to the tree branches
 
@@ -50,13 +50,29 @@
       }
     }
   }
-
+  /*
   for (int l = 0; l < 32; l++){
     for (int m = 0; m < 1024; m++) {
       for (int iEnt = 0; iEnt < nEntries; iEnt++) {
         capmean[l][m] += capval[l][m][iEnt];
       }
       capmean[l][m] = capmean[l][m]/nEntries;
+    }
+  }
+  */
+  int binmax = 0;
+  char buffer [8];
+  TH1I *h[32][1024];
+  for (int l = 0; l < 32; l++){
+    //h[l] = new TH1I[1024];
+    for (int m = 0; m < 1024; m++) {
+      for (int iEnt = 0; iEnt < nEntries; iEnt++) {
+        sprintf(buffer, "h[%d][%d]", l, m);
+        h[l][m] = new TH1I(buffer, buffer, 400, 0, 1200);
+        h[l][m].Fill(capval[l][m][iEnt]);
+      }
+      binmax = h[l][m].GetMaximumBin();
+      capmax[l][m] = h[l][m]->GetXaxis()->GetBinCenter(binmax);
     }
   }
 
@@ -72,7 +88,6 @@
   int cidx1[4];             // An array of the cidx values
   float oldval[32][1024][10000];
   float newval[32][1024][10000];
-  float newvalf[32][1024];
 
   myTree1->SetBranchAddress("wf",        wf1);
   //myTree1->SetBranchAddress("event",        event);
@@ -111,56 +126,32 @@
     }
    for (int l = 0; l < 32; l++){
     for (int m = 0; m < 1024; m++) {
-    newval[l][m][iEnt] = oldval[l][m][iEnt] - capmean[l][m];
+    newval[l][m][iEnt] = oldval[l][m][iEnt] - capmax[l][m];
     //if(l==0 && iEnt==2) cout<< l << " " << m << " " << iEnt <<" " << oldval[l][m][iEnt] << endl;
     }
    }
 
   }
 
-
    float x[1024];
    float y[1024];
 
   auto canvas = new TCanvas("canvas", "First canvas", 1000, 800);
-  canvas->Divide(2,4);
-  TGraph *g[16];
+  canvas->Divide(8,4);
+  TGraph *g[32];
+
 
   //for (int j=0; j<16; j++) {
   for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
    x[i-cidx1[0]] = i-cidx1[0];
   }
-  for (int j=0; j<8; j++) {
+  for (int j=0; j<32; j++) {
    for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
     y[i-cidx1[0]] = newval[j][i%1024][1007]; //j: channel, 1007: event no
    }
-
-   //cout<<j<<endl;
    canvas->cd(j+1);
    g[j] = new TGraph(1024, x, y);
    g[j]->Draw("AC*");
+ }
 
-}
-
-
-
-/*
-
-  myTree1->Branch("newvalues", &newvalf, "newvalues/F");
-
-  for (Int_t i=0; i < nEntries1; i++) {
-    for (int l = 0; l < 32; l++){
-      for (int m = 0; m < 1024; m++) {
-      newvalf[l][m] = newval[l][m][i];
-      }
-    }
-      // Fills tree:
-    myTree1->Fill();
-  }
-
-  myTree1->Draw("newvalf");
-
-
-  myFile.Close(); // Close file
-  myFile1.Close(); // Close file */
 }
