@@ -13,7 +13,7 @@
   int wf[32][1024];        // An array of the wf values
   int cidx[4];       // An array of the cidx values
   int capval[32][1024][10000];
-  float capmax[32][1024] = {0.0};
+  float baseline[32][1024] = {0.0};
 
   // Linking the local variables to the tree branches
 
@@ -52,70 +52,46 @@
     }
   }
 
-
-  
-int m = 2;
-for (int l = 0; l < 8; l++) {
-  std::map <int, int> cap;
-  int max = -10000000;
-  for(int iEnt = 0; iEnt < nEntries; iEnt++) {
-    if (!cap.count(capval[l][m][iEnt])) {
-      cap[capval[l][m][iEnt]] = 1;
-    }
-    else {
-      cap[capval[l][m][iEnt]]++;
-    }
-    cout << l << " " << iEnt << " " << cap[capval[l][m][iEnt]] << endl;
-    if (cap[capval[l][m][iEnt]] > max)
-      max = cap[capval[l][m][iEnt]];
-  }
-  delete(c)
-}
-
-
-  /*
-  for (int l = 0; l < 32; l++){
-    for (int m = 0; m < 1024; m++) {
-      for (int iEnt = 0; iEnt < nEntries; iEnt++) {
-        capmean[l][m] += capval[l][m][iEnt];
-      }
-      capmean[l][m] = capmean[l][m]/nEntries;
-    }
-  }
-  */
-/*
+  int max[32][1024] = {0};
   int binmax = 0;
   char buffer [8];
   TH1I *h[32][1024];
   for (int l = 0; l < 32; l++){
-    //h[l] = new TH1I[1024];
     for (int m = 0; m < 1024; m++) {
+      sprintf(buffer, "h[%d][%d]", l, m);
+      h[l][m] = new TH1I(buffer, buffer, 400, 0, 1200);
       for (int iEnt = 0; iEnt < nEntries; iEnt++) {
-        sprintf(buffer, "h[%d][%d]", l, m);
-        h[l][m] = new TH1I(buffer, buffer, 400, 0, 1200);
-        h[l][m].Fill(capval[l][m][iEnt]);
+        h[l][m]->Fill(capval[l][m][iEnt]);
       }
-      binmax = h[l][m].GetMaximumBin();
-      capmax[l][m] = h[l][m]->GetXaxis()->GetBinCenter(binmax);
+      binmax = h[l][m]->GetMaximumBin();
+      max[l][m] = h[l][m]->GetXaxis()->GetBinCenter(binmax);
     }
-  }*/
+  }
+//Create baseline by averaging over 1000 samples.
+  for (int l = 0; l < 32; l++) {
+    for (int m = 0; m < 1024; m++) {
+      for (int iEnt = 2000; iEnt < 3000; iEnt ++) {
+        baseline[l][m] += capval[l][m][iEnt];
+      }
+      baseline[l][m] = (baseline[l][m]/1000) - max[l][m];
+    }
+  }
 
 
   //  gROOT->Reset();
   // Open the file for writing
-/*
+
   TFile myFile1("baselinesamples2.root"); // Open the file
   TTree* myTree1 = (TTree*) myFile1.Get("tree"); // Get the tree from the file
 
   int nEntries1 = myTree1->GetEntries(); // Get the number of entries in this tree
   int wf1[32][1024];        // An array of the wf values
   int cidx1[4];             // An array of the cidx values
-  float oldval[32][1024][10000];
-  float newval[32][1024][10000];
+  int oldval[32][1024][10000];
+  int newval[32][1024][10000];
 
-  myTree1->SetBranchAddress("wf",        wf1);
-  //myTree1->SetBranchAddress("event",        event);
-  myTree1->SetBranchAddress("cidx",       cidx1);
+  myTree1->SetBranchAddress("wf",wf1);
+  myTree1->SetBranchAddress("cidx",cidx1);
 
   for (int iEnt = 0; iEnt < nEntries1; iEnt++) {
     myTree1->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
@@ -150,8 +126,8 @@ for (int l = 0; l < 8; l++) {
     }
    for (int l = 0; l < 32; l++){
     for (int m = 0; m < 1024; m++) {
-    newval[l][m][iEnt] = oldval[l][m][iEnt] - capmax[l][m];
-    //if(l==0 && iEnt==2) cout<< l << " " << m << " " << iEnt <<" " << oldval[l][m][iEnt] << endl;
+      newval[l][m][iEnt] = oldval[l][m][iEnt] - max[l][m];
+      //newval[l][m][iEnt] = newval[l][m][iEnt] - baseline[l][m];
     }
    }
 
@@ -160,23 +136,38 @@ for (int l = 0; l < 8; l++) {
    float x[1024];
    float y[1024];
 
-  auto canvas = new TCanvas("canvas", "First canvas", 1000, 800);
+  auto canvas = new TCanvas("canvas", "Calibrated Pulse", 1400, 990);
   canvas->Divide(8,4);
   TGraph *g[32];
 
-
-  //for (int j=0; j<16; j++) {
   for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
    x[i-cidx1[0]] = i-cidx1[0];
   }
   for (int j=0; j<32; j++) {
-   for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
-    y[i-cidx1[0]] = newval[j][i%1024][1007]; //j: channel, 1007: event no
-   }
+    if (j<8) {
+      for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
+        y[i-cidx1[0]] = newval[j][i%1024][150]; //j: channel, 150: event no
+      }
+    }
+    else if (j<16) {
+      for (Int_t i=cidx1[1];i<1024+cidx1[1];i++) {
+        y[i-cidx1[1]] = newval[j][i%1024][150]; //j: channel, 150: event no
+      }
+    }
+    else if (j<24) {
+      for (Int_t i=cidx1[2];i<1024+cidx1[2];i++) {
+        y[i-cidx1[2]] = newval[j][i%1024][150]; //j: channel, 150: event no
+      }
+    }
+    else if (j<32) {
+      for (Int_t i=cidx1[3];i<1024+cidx1[3];i++) {
+        y[i-cidx1[3]] = newval[j][i%1024][150]; //j: channel, 150: event no
+      }
+    }
    canvas->cd(j+1);
    g[j] = new TGraph(1024, x, y);
    g[j]->Draw("AC*");
  }
 
-*/
+
 }
