@@ -11,7 +11,7 @@
   int wf[32][1024];        // An array of the wf values
   int cidx[4];       // An array of the cidx values
   int capval[32][1024][10000];
-  float capmean[32][1024] = {0.0};
+  float baseline[32][1024] = {0.0};
 
   // Linking the local variables to the tree branches
 
@@ -50,16 +50,47 @@
     }
   }
 
+  int max[32][1024] = {0};
+  int binmax = 0;
+  char buffer [8];
+  TH1I *h[32][1024];
+  // auto canvas1 = new TCanvas("canvas1", "Calibrated Pulse", 1400, 990);
+  // canvas1->Divide(4,2);
   for (int l = 0; l < 32; l++){
     for (int m = 0; m < 1024; m++) {
+      sprintf(buffer, "h[%d][%d]", l, m);
+      h[l][m] = new TH1I(buffer, buffer, 300, 600, 1200);
       for (int iEnt = 0; iEnt < nEntries; iEnt++) {
-        capmean[l][m] += capval[l][m][iEnt];
+        h[l][m]->Fill(capval[l][m][iEnt]);
       }
-      capmean[l][m] = capmean[l][m]/nEntries;
+      binmax = h[l][m]->GetMaximumBin();
+      max[l][m] = h[l][m]->GetXaxis()->GetBinCenter(binmax);
+      // if (m<8) {
+      //   canvas1->cd(m+1);
+      //   h[l][m]->Draw();
+      // }
     }
   }
+//Create baseline by averaging over 10000 samples.
+  for (int l = 0; l < 32; l++) {
+    for (int m = 0; m < 1024; m++) {
+      for (int iEnt = 0; iEnt < 10000; iEnt ++) {
+        baseline[l][m] += (capval[l][m][iEnt] - max[l][m]);
+      }
+      baseline[l][m] = (baseline[l][m]/10000);// - max[l][m];
+      //baseline[l][m] = capval[l][m][3000] - max[l][m];
+    }
+  }
+  // for (int l = 0; l < 32; l++){
+  //   for (int m = 0; m < 1024; m++) {
+  //     for (int iEnt = 0; iEnt < nEntries; iEnt++) {
+  //       capmean[l][m] += capval[l][m][iEnt];
+  //     }
+  //     capmean[l][m] = capmean[l][m]/nEntries;
+  //   }
+  // }
 
-  int tempin[8][7];
+  float tempin[8][7];
 
   //manually enter the values in the array
   for (int channel = 0; channel < 8; channel++) {
@@ -141,436 +172,533 @@
   }
 
   float maxmean[32][50] = {0.0};
+  float maxmean1[32][50] = {0.0};
   float inpTemp[7] = {0.0};
   int values[32][1024][100];
   int maxval[32][100] = {0};
+  int values1[32][1024][100];
+  int maxval1[32][100] = {0};
 
   //To create an array of input voltage values.
-  //To create an array of input voltage values.
-    int wf0[32][1024];        // An array of the wf values
-    int cidx0[4];       // An array of the cidx values
-    TFile myFile0("22.root"); // Open the file
-    TTree* myTree0 = (TTree*) myFile0.Get("tree"); // Get the tree from the file
-    inpTemp[0] = 22;
-    const int nEntries0 = myTree0->GetEntries(); // Get the number of entries in this tree
+  int wf0[32][1024];        // An array of the wf values
+  int cidx0[4];       // An array of the cidx values
+  TFile myFile0("22.root"); // Open the file
+  TTree* myTree0 = (TTree*) myFile0.Get("tree"); // Get the tree from the file
+  inpTemp[0] = 22;
+  const int nEntries0 = myTree0->GetEntries(); // Get the number of entries in this tree
 
-    myTree0->SetBranchAddress("wf",wf0);
-    myTree0->SetBranchAddress("cidx",cidx0);
+  myTree0->SetBranchAddress("wf",wf0);
+  myTree0->SetBranchAddress("cidx",cidx0);
 
-    for (int iEnt = 0; iEnt < nEntries0; iEnt++) { //to extract values from signal waveform
-      myTree0->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
-      for (int l = 0; l < 8; l++){
-      for (int c = cidx0[0], d = 0; c < cidx0[0]+1024; c++){
-          values[l][c%1024][iEnt] = wf0[l][d]; //values extracted from the waveform
-          values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-          d++;
-        }
-      }
-
-    for (int l = 8; l < 16; l++){
-      for (int c = cidx[1], d = 0; c < cidx[1]+1024; c++){
+  for (int iEnt = 0; iEnt < nEntries0; iEnt++) { //to extract values from signal waveform
+    myTree0->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
+    for (int l = 0; l < 8; l++){
+    for (int c = cidx0[0], d = 0; c < cidx0[0]+1024; c++){
         values[l][c%1024][iEnt] = wf0[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
+        values1[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capval[l][c%1024][4000];
+        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
         d++;
       }
     }
 
-    for (int l = 16; l < 24; l++){
-      for (int c = cidx[2], d = 0; c < cidx[2]+1024; c++){
-        values[l][c%1024][iEnt] = wf0[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 8; l < 16; l++){
+    for (int c = cidx0[1], d = 0; c < cidx0[1]+1024; c++){
+      values[l][c%1024][iEnt] = wf0[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
+  }
 
-    for (int l = 24; l < 32; l++){
-      for (int c = cidx[3], d = 0; c < cidx[3]+1024; c++){
-        values[l][c%1024][iEnt] = wf0[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 16; l < 24; l++){
+    for (int c = cidx0[2], d = 0; c < cidx0[2]+1024; c++){
+      values[l][c%1024][iEnt] = wf0[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
-   }
+  }
 
-    for (int l = 0; l < 32; l++){
-      for (int iEnt = 0; iEnt < nEntries0; iEnt++) {
-        for (int m = 0; m < 1024; m++){
-          if (values[l][m][iEnt] > maxval[l][iEnt]){
-            maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
-          }
+  for (int l = 24; l < 32; l++){
+    for (int c = cidx0[3], d = 0; c < cidx0[3]+1024; c++){
+      values[l][c%1024][iEnt] = wf0[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+  }
+
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries0; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values[l][m][iEnt] > maxval[l][iEnt]){
+          maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
         }
-        maxmean[l][0] += maxval[l][iEnt];
-      //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
       }
-      maxmean[l][0] = maxmean[l][0]/nEntries0; //find the mean of maximas across entries
-      }
+      maxmean[l][0] += maxval[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean[l][0] = maxmean[l][0]/nEntries0; //find the mean of maximas across entries
+  }
 
-      int wf1[32][1024];        // An array of the wf values //Here 0->1
-      int cidx1[4];       // An array of the cidx values //Here 0->1
-      TFile myFile1("23.root"); // Open the file //Here 0->1
-      TTree* myTree1 = (TTree*) myFile1.Get("tree"); // Get the tree from the file //Here 0->1
-      inpTemp[1] = 23; //Here 0->1
-      const int nEntries1 = myTree1->GetEntries(); // Get the number of entries in this tree //Here 0->1
-
-      myTree1->SetBranchAddress("wf",wf1); //Here 0->1
-      myTree1->SetBranchAddress("cidx",cidx1); //Here 0->1
-
-      for (int iEnt = 0; iEnt < nEntries1; iEnt++) { //to extract values from signal waveform //Here 0->1
-       myTree1->GetEntry(iEnt); // Gets the next entry (filling the linked variables) //Here 0->1
-       for (int l = 0; l < 8; l++){
-        for (int c = cidx1[0], d = 0; c < cidx1[0]+1024; c++){ //Here 0->1
-            values[l][c%1024][iEnt] = wf1[l][d]; //values extracted from the waveform //Here 0->1
-            values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-            d++;
-          }
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries0; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values1[l][m][iEnt] > maxval1[l][iEnt]){
+          maxval1[l][iEnt] = values1[l][m][iEnt]; //Find the maximum for a particular entry
         }
+      }
+      maxmean1[l][0] += maxval1[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean1[l][0] = maxmean1[l][0]/nEntries0; //find the mean of maximas across entries
+  }
 
+  int wf1[32][1024];        // An array of the wf values
+  int cidx1[4];       // An array of the cidx values
+  TFile myFile1("23.root"); // Open the file
+  TTree* myTree1 = (TTree*) myFile1.Get("tree"); // Get the tree from the file
+  inpTemp[1] = 23;
+  const int nEntries1 = myTree1->GetEntries(); // Get the number of entries in this tree
 
-    for (int l = 8; l < 16; l++){
-      for (int c = cidx1[1], d = 0; c < cidx1[1]+1024; c++){
+  myTree1->SetBranchAddress("wf",wf1);
+  myTree1->SetBranchAddress("cidx",cidx1);
+
+  for (int iEnt = 0; iEnt < nEntries1; iEnt++) { //to extract values from signal waveform
+    myTree1->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
+    for (int l = 0; l < 8; l++){
+    for (int c = cidx1[0], d = 0; c < cidx1[0]+1024; c++){
         values[l][c%1024][iEnt] = wf1[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
+        values1[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capval[l][c%1024][4000];
+        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
         d++;
       }
     }
 
-    for (int l = 16; l < 24; l++){
-      for (int c = cidx1[2], d = 0; c < cidx1[2]+1024; c++){
-        values[l][c%1024][iEnt] = wf1[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 8; l < 16; l++){
+    for (int c = cidx1[1], d = 0; c < cidx1[1]+1024; c++){
+      values[l][c%1024][iEnt] = wf1[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
+  }
 
-    for (int l = 24; l < 32; l++){
-      for (int c = cidx1[3], d = 0; c < cidx1[3]+1024; c++){
-        values[l][c%1024][iEnt] = wf1[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 16; l < 24; l++){
+    for (int c = cidx1[2], d = 0; c < cidx1[2]+1024; c++){
+      values[l][c%1024][iEnt] = wf1[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
-   }
+  }
 
+  for (int l = 24; l < 32; l++){
+    for (int c = cidx1[3], d = 0; c < cidx1[3]+1024; c++){
+      values[l][c%1024][iEnt] = wf1[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+  }
 
-
-      for (int l = 0; l < 32; l++){
-        for (int iEnt = 0; iEnt < nEntries1; iEnt++) {
-          for (int m = 0; m < 1024; m++){
-            if (values[l][m][iEnt] > maxval[l][iEnt]){
-              maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
-            }
-          }
-          maxmean[l][1] += maxval[l][iEnt]; //Here 0->1
-        //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries1; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values[l][m][iEnt] > maxval[l][iEnt]){
+          maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
         }
-        maxmean[l][1] = maxmean[l][1]/nEntries1; //find the mean of maximas across entries //Here 0->1
+      }
+      maxmean[l][1] += maxval[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean[l][1] = maxmean[l][1]/nEntries1; //find the mean of maximas across entries
+  }
+
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries1; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values1[l][m][iEnt] > maxval1[l][iEnt]){
+          maxval1[l][iEnt] = values1[l][m][iEnt]; //Find the maximum for a particular entry
         }
+      }
+      maxmean1[l][1] += maxval1[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean1[l][1] = maxmean1[l][1]/nEntries1; //find the mean of maximas across entries
+  }
 
-  	  int wf2[32][1024];        // An array of the wf values //Here 0->1
-      int cidx2[4];       // An array of the cidx values //Here 0->1
-      TFile myFile2("24.root"); // Open the file //Here 0->1
-      TTree* myTree2 = (TTree*) myFile2.Get("tree"); // Get the tree from the file //Here 0->1
-      inpTemp[2] = 24; //Here 0->1
-      const int nEntries2 = myTree2->GetEntries(); // Get the number of entries in this tree //Here 0->1
+  int wf2[32][1024];        // An array of the wf values
+  int cidx2[4];       // An array of the cidx values
+  TFile myFile2("24.root"); // Open the file
+  TTree* myTree2 = (TTree*) myFile2.Get("tree"); // Get the tree from the file
+  inpTemp[2] = 24;
+  const int nEntries2 = myTree2->GetEntries(); // Get the number of entries in this tree
 
-      myTree2->SetBranchAddress("wf",wf2); //Here 0->1
-      myTree2->SetBranchAddress("cidx",cidx2); //Here 0->1
+  myTree2->SetBranchAddress("wf",wf2);
+  myTree2->SetBranchAddress("cidx",cidx2);
 
-      for (int iEnt = 0; iEnt < nEntries2; iEnt++) { //to extract values from signal waveform //Here 0->1
-        myTree2->GetEntry(iEnt); // Gets the next entry (filling the linked variables) //Here 0->1
-        for (int l = 0; l < 8; l++){
-         for (int c = cidx2[0], d = 0; c < cidx2[0]+1024; c++){ //Here 0->1
-            values[l][c%1024][iEnt] = wf2[l][d]; //values extracted from the waveform //Here 0->1
-            values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-            d++;
-          }
-        }
-    for (int l = 8; l < 16; l++){
-      for (int c = cidx2[1], d = 0; c < cidx2[1]+1024; c++){
+  for (int iEnt = 0; iEnt < nEntries2; iEnt++) { //to extract values from signal waveform
+    myTree2->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
+    for (int l = 0; l < 8; l++){
+    for (int c = cidx2[0], d = 0; c < cidx2[0]+1024; c++){
         values[l][c%1024][iEnt] = wf2[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
+        values1[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capval[l][c%1024][4000];
+        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
         d++;
       }
     }
 
-    for (int l = 16; l < 24; l++){
-      for (int c = cidx2[2], d = 0; c < cidx2[2]+1024; c++){
-        values[l][c%1024][iEnt] = wf2[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 8; l < 16; l++){
+    for (int c = cidx2[1], d = 0; c < cidx2[1]+1024; c++){
+      values[l][c%1024][iEnt] = wf2[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
+  }
 
-    for (int l = 24; l < 32; l++){
-      for (int c = cidx2[3], d = 0; c < cidx2[3]+1024; c++){
-        values[l][c%1024][iEnt] = wf2[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 16; l < 24; l++){
+    for (int c = cidx2[2], d = 0; c < cidx2[2]+1024; c++){
+      values[l][c%1024][iEnt] = wf2[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
-   }
+  }
 
-      for (int l = 0; l < 32; l++){
-        for (int iEnt = 0; iEnt < nEntries2; iEnt++) {
-          for (int m = 0; m < 1024; m++){
-            if (values[l][m][iEnt] > maxval[l][iEnt]){
-              maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
-            }
-          }
-          maxmean[l][2] += maxval[l][iEnt]; //Here 0->1
-        //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+  for (int l = 24; l < 32; l++){
+    for (int c = cidx2[3], d = 0; c < cidx2[3]+1024; c++){
+      values[l][c%1024][iEnt] = wf2[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+  }
+
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries2; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values[l][m][iEnt] > maxval[l][iEnt]){
+          maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
         }
-        maxmean[l][2] = maxmean[l][2]/nEntries2; //find the mean of maximas across entries //Here 0->1
+      }
+      maxmean[l][2] += maxval[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean[l][2] = maxmean[l][2]/nEntries2; //find the mean of maximas across entries
+  }
+
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries2; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values1[l][m][iEnt] > maxval1[l][iEnt]){
+          maxval1[l][iEnt] = values1[l][m][iEnt]; //Find the maximum for a particular entry
         }
+      }
+      maxmean1[l][2] += maxval1[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean1[l][2] = maxmean1[l][2]/nEntries2; //find the mean of maximas across entries
+  }
 
-  	  int wf3[32][1024];        // An array of the wf values //Here 0->1
-      int cidx3[4];       // An array of the cidx values //Here 0->1
-      TFile myFile3("25.root"); // Open the file //Here 0->1
-      TTree* myTree3 = (TTree*) myFile3.Get("tree"); // Get the tree from the file //Here 0->1
-      inpTemp[3] = 25; //Here 0->1
-      const int nEntries3 = myTree3->GetEntries(); // Get the number of entries in this tree //Here 0->1
+  int wf3[32][1024];        // An array of the wf values
+  int cidx3[4];       // An array of the cidx values
+  TFile myFile3("25.root"); // Open the file
+  TTree* myTree3 = (TTree*) myFile3.Get("tree"); // Get the tree from the file
+  inpTemp[3] = 25;
+  const int nEntries3 = myTree3->GetEntries(); // Get the number of entries in this tree
 
-      myTree3->SetBranchAddress("wf",wf3); //Here 0->1
-      myTree3->SetBranchAddress("cidx",cidx3); //Here 0->1
+  myTree3->SetBranchAddress("wf",wf3);
+  myTree3->SetBranchAddress("cidx",cidx3);
 
-      for (int iEnt = 0; iEnt < nEntries3; iEnt++) { //to extract values from signal waveform //Here 0->1
-       myTree3->GetEntry(iEnt); // Gets the next entry (filling the linked variables) //Here 0->1
-       for (int l = 0; l < 8; l++){
-        for (int c = cidx3[0], d = 0; c < cidx3[0]+1024; c++){ //Here 0->1
-            values[l][c%1024][iEnt] = wf3[l][d]; //values extracted from the waveform //Here 0->1
-            values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-            d++;
-          }
-        }
-
-    for (int l = 8; l < 16; l++){
-      for (int c = cidx3[1], d = 0; c < cidx3[1]+1024; c++){
+  for (int iEnt = 0; iEnt < nEntries3; iEnt++) { //to extract values from signal waveform
+    myTree3->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
+    for (int l = 0; l < 8; l++){
+    for (int c = cidx3[0], d = 0; c < cidx3[0]+1024; c++){
         values[l][c%1024][iEnt] = wf3[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
+        values1[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capval[l][c%1024][4000];
+        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
         d++;
       }
     }
 
-    for (int l = 16; l < 24; l++){
-      for (int c = cidx3[2], d = 0; c < cidx3[2]+1024; c++){
-        values[l][c%1024][iEnt] = wf3[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
+  for (int l = 8; l < 16; l++){
+    for (int c = cidx3[1], d = 0; c < cidx3[1]+1024; c++){
+      values[l][c%1024][iEnt] = wf3[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+
+  for (int l = 16; l < 24; l++){
+    for (int c = cidx3[2], d = 0; c < cidx3[2]+1024; c++){
+      values[l][c%1024][iEnt] = wf3[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+
+  for (int l = 24; l < 32; l++){
+    for (int c = cidx3[3], d = 0; c < cidx3[3]+1024; c++){
+      values[l][c%1024][iEnt] = wf3[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+  }
+
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries3; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values[l][m][iEnt] > maxval[l][iEnt]){
+          maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
+        }
       }
+      maxmean[l][3] += maxval[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
     }
+    maxmean[l][3] = maxmean[l][3]/nEntries3; //find the mean of maximas across entries
+  }
 
-    for (int l = 24; l < 32; l++){
-      for (int c = cidx3[3], d = 0; c < cidx3[3]+1024; c++){
-        values[l][c%1024][iEnt] = wf3[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries3; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values1[l][m][iEnt] > maxval1[l][iEnt]){
+          maxval1[l][iEnt] = values1[l][m][iEnt]; //Find the maximum for a particular entry
+        }
       }
+      maxmean1[l][3] += maxval1[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
     }
-    }
+    maxmean1[l][3] = maxmean1[l][3]/nEntries3; //find the mean of maximas across entries
+  }
 
-      for (int l = 0; l < 32; l++){
-        for (int iEnt = 0; iEnt < nEntries3; iEnt++) {
-          for (int m = 0; m < 1024; m++){
-            if (values[l][m][iEnt] > maxval[l][iEnt]){
-              maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
-            }
-          }
-          maxmean[l][3] += maxval[l][iEnt]; //Here 0->1
-        //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
-        }
-        maxmean[l][3] = maxmean[l][3]/nEntries3; //find the mean of maximas across entries //Here 0->1
-        }
+  int wf4[32][1024];        // An array of the wf values
+  int cidx4[4];       // An array of the cidx values
+  TFile myFile4("26.root"); // Open the file
+  TTree* myTree4 = (TTree*) myFile4.Get("tree"); // Get the tree from the file
+  inpTemp[4] = 26;
+  const int nEntries4 = myTree4->GetEntries(); // Get the number of entries in this tree
 
+  myTree4->SetBranchAddress("wf",wf4);
+  myTree4->SetBranchAddress("cidx",cidx4);
 
-      int wf4[32][1024];        // An array of the wf values //Here 0->1
-      int cidx4[4];       // An array of the cidx values //Here 0->1
-      TFile myFile4("26.root"); // Open the file //Here 0->1
-      TTree* myTree4 = (TTree*) myFile4.Get("tree"); // Get the tree from the file //Here 0->1
-      inpTemp[4] = 26; //Here 0->1
-      const int nEntries4 = myTree4->GetEntries(); // Get the number of entries in this tree //Here 0->1
-
-      myTree4->SetBranchAddress("wf",wf4); //Here 0->1
-      myTree4->SetBranchAddress("cidx",cidx4); //Here 0->1
-
-      for (int iEnt = 0; iEnt < nEntries4; iEnt++) { //to extract values from signal waveform //Here 0->1
-        myTree4->GetEntry(iEnt); // Gets the next entry (filling the linked variables) //Here 0->1
-        for (int l = 0; l < 8; l++){
-        for (int c = cidx4[0], d = 0; c < cidx4[0]+1024; c++){ //Here 0->1
-            values[l][c%1024][iEnt] = wf4[l][d]; //values extracted from the waveform //Here 0->1
-            values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-            d++;
-          }
-        }
-      for (int l = 8; l < 16; l++){
-      for (int c = cidx4[1], d = 0; c < cidx4[1]+1024; c++){
+  for (int iEnt = 0; iEnt < nEntries4; iEnt++) { //to extract values from signal waveform
+    myTree4->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
+    for (int l = 0; l < 8; l++){
+    for (int c = cidx4[0], d = 0; c < cidx4[0]+1024; c++){
         values[l][c%1024][iEnt] = wf4[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
+        values1[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capval[l][c%1024][4000];
+        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
         d++;
       }
     }
 
-    for (int l = 16; l < 24; l++){
-      for (int c = cidx4[2], d = 0; c < cidx4[2]+1024; c++){
-        values[l][c%1024][iEnt] = wf4[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
+  for (int l = 8; l < 16; l++){
+    for (int c = cidx4[1], d = 0; c < cidx4[1]+1024; c++){
+      values[l][c%1024][iEnt] = wf4[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+
+  for (int l = 16; l < 24; l++){
+    for (int c = cidx4[2], d = 0; c < cidx4[2]+1024; c++){
+      values[l][c%1024][iEnt] = wf4[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+
+  for (int l = 24; l < 32; l++){
+    for (int c = cidx4[3], d = 0; c < cidx4[3]+1024; c++){
+      values[l][c%1024][iEnt] = wf4[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+  }
+
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries4; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values[l][m][iEnt] > maxval[l][iEnt]){
+          maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
+        }
       }
+      maxmean[l][4] += maxval[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
     }
+    maxmean[l][4] = maxmean[l][4]/nEntries4; //find the mean of maximas across entries
+  }
 
-    for (int l = 24; l < 32; l++){
-      for (int c = cidx4[3], d = 0; c < cidx4[3]+1024; c++){
-        values[l][c%1024][iEnt] = wf4[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries4; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values1[l][m][iEnt] > maxval1[l][iEnt]){
+          maxval1[l][iEnt] = values1[l][m][iEnt]; //Find the maximum for a particular entry
+        }
       }
+      maxmean1[l][4] += maxval1[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
     }
-    }
+    maxmean1[l][4] = maxmean1[l][4]/nEntries4; //find the mean of maximas across entries
+  }
 
-      for (int l = 0; l < 32; l++){
-        for (int iEnt = 0; iEnt < nEntries4; iEnt++) {
-          for (int m = 0; m < 1024; m++){
-            if (values[l][m][iEnt] > maxval[l][iEnt]){
-              maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
-            }
-          }
-          maxmean[l][4] += maxval[l][iEnt]; //Here 0->1
-        //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
-        }
-        maxmean[l][4] = maxmean[l][4]/nEntries4; //find the mean of maximas across entries //Here 0->1
-        }
+  int wf5[32][1024];        // An array of the wf values
+  int cidx5[4];       // An array of the cidx values
+  TFile myFile5("27.root"); // Open the file
+  TTree* myTree5 = (TTree*) myFile5.Get("tree"); // Get the tree from the file
+  inpTemp[5] = 27;
+  const int nEntries5 = myTree5->GetEntries(); // Get the number of entries in this tree
 
+  myTree5->SetBranchAddress("wf",wf5);
+  myTree5->SetBranchAddress("cidx",cidx5);
 
-      int wf5[32][1024];        // An array of the wf values //Here 0->1
-      int cidx5[4];       // An array of the cidx values //Here 0->1
-      TFile myFile5("27.root"); // Open the file //Here 0->1
-      TTree* myTree5 = (TTree*) myFile5.Get("tree"); // Get the tree from the file //Here 0->1
-      inpTemp[5] = 27; //Here 0->1
-      const int nEntries5 = myTree5->GetEntries(); // Get the number of entries in this tree //Here 0->1
-
-      myTree5->SetBranchAddress("wf",wf5); //Here 0->1
-      myTree5->SetBranchAddress("cidx",cidx5); //Here 0->1
-
-      for (int iEnt = 0; iEnt < nEntries5; iEnt++) { //to extract values from signal waveform //Here 0->1
-        myTree5->GetEntry(iEnt); // Gets the next entry (filling the linked variables) //Here 0->1
-        for (int l = 0; l < 8; l++){
-        for (int c = cidx5[0], d = 0; c < cidx5[0]+1024; c++){ //Here 0->1
-            values[l][c%1024][iEnt] = wf5[l][d]; //values extracted from the waveform //Here 0->1
-            values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-            d++;
-          }
-        }
-
-    for (int l = 8; l < 16; l++){
-      for (int c = cidx5[1], d = 0; c < cidx5[1]+1024; c++){
+  for (int iEnt = 0; iEnt < nEntries5; iEnt++) { //to extract values from signal waveform
+    myTree5->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
+    for (int l = 0; l < 8; l++){
+    for (int c = cidx5[0], d = 0; c < cidx5[0]+1024; c++){
         values[l][c%1024][iEnt] = wf5[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
+        values1[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capval[l][c%1024][4000];
+        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
         d++;
       }
     }
 
-    for (int l = 16; l < 24; l++){
-      for (int c = cidx5[2], d = 0; c < cidx5[2]+1024; c++){
-        values[l][c%1024][iEnt] = wf5[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 8; l < 16; l++){
+    for (int c = cidx5[1], d = 0; c < cidx5[1]+1024; c++){
+      values[l][c%1024][iEnt] = wf5[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
+  }
 
-    for (int l = 24; l < 32; l++){
-      for (int c = cidx5[3], d = 0; c < cidx5[3]+1024; c++){
-        values[l][c%1024][iEnt] = wf5[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 16; l < 24; l++){
+    for (int c = cidx5[2], d = 0; c < cidx5[2]+1024; c++){
+      values[l][c%1024][iEnt] = wf5[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
+  }
+
+  for (int l = 24; l < 32; l++){
+    for (int c = cidx5[3], d = 0; c < cidx5[3]+1024; c++){
+      values[l][c%1024][iEnt] = wf5[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+  }
+
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries5; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values[l][m][iEnt] > maxval[l][iEnt]){
+          maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
+        }
       }
+      maxmean[l][5] += maxval[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean[l][5] = maxmean[l][5]/nEntries5; //find the mean of maximas across entries
+  }
 
-      for (int l = 0; l < 32; l++){
-        for (int iEnt = 0; iEnt < nEntries5; iEnt++) {
-          for (int m = 0; m < 1024; m++){
-            if (values[l][m][iEnt] > maxval[l][iEnt]){
-              maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
-            }
-          }
-          maxmean[l][5] += maxval[l][iEnt]; //Here 0->1
-        //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries5; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values1[l][m][iEnt] > maxval1[l][iEnt]){
+          maxval1[l][iEnt] = values1[l][m][iEnt]; //Find the maximum for a particular entry
         }
-        maxmean[l][5] = maxmean[l][5]/nEntries5; //find the mean of maximas across entries //Here 0->1
-        }
+      }
+      maxmean1[l][5] += maxval1[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean1[l][5] = maxmean1[l][5]/nEntries5; //find the mean of maximas across entries
+  }
 
-      int wf6[32][1024];        // An array of the wf values //Here 0->1
-      int cidx6[4];       // An array of the cidx values //Here 0->1
-      TFile myFile6("28.root"); // Open the file //Here 0->1
-      TTree* myTree6 = (TTree*) myFile6.Get("tree"); // Get the tree from the file //Here 0->1
-      inpTemp[6] = 28; //Here 0->1
-      const int nEntries6 = myTree6->GetEntries(); // Get the number of entries in this tree //Here 0->1
+  int wf6[32][1024];        // An array of the wf values
+  int cidx6[4];       // An array of the cidx values
+  TFile myFile6("28.root"); // Open the file
+  TTree* myTree6 = (TTree*) myFile6.Get("tree"); // Get the tree from the file
+  inpTemp[6] = 28;
+  const int nEntries6 = myTree6->GetEntries(); // Get the number of entries in this tree
 
-      myTree6->SetBranchAddress("wf",wf6); //Here 0->1
-      myTree6->SetBranchAddress("cidx",cidx6); //Here 0->1
+  myTree6->SetBranchAddress("wf",wf6);
+  myTree6->SetBranchAddress("cidx",cidx6);
 
-      for (int iEnt = 0; iEnt < nEntries6; iEnt++) { //to extract values from signal waveform //Here 0->1
-        myTree6->GetEntry(iEnt); // Gets the next entry (filling the linked variables) //Here 0->1
-        for (int l = 0; l < 8; l++){
-        for (int c = cidx6[0], d = 0; c < cidx6[0]+1024; c++){ //Here 0->1
-            values[l][c%1024][iEnt] = wf6[l][d]; //values extracted from the waveform //Here 0->1
-            values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-            d++;
-          }
-        }
-
-    for (int l = 8; l < 16; l++){
-      for (int c = cidx6[1], d = 0; c < cidx6[1]+1024; c++){
+  for (int iEnt = 0; iEnt < nEntries6; iEnt++) { //to extract values from signal waveform
+    myTree6->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
+    for (int l = 0; l < 8; l++){
+    for (int c = cidx6[0], d = 0; c < cidx6[0]+1024; c++){
         values[l][c%1024][iEnt] = wf6[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
+        values1[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capval[l][c%1024][4000];
+        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
         d++;
       }
     }
 
-    for (int l = 16; l < 24; l++){
-      for (int c = cidx6[2], d = 0; c < cidx6[2]+1024; c++){
-        values[l][c%1024][iEnt] = wf6[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 8; l < 16; l++){
+    for (int c = cidx6[1], d = 0; c < cidx6[1]+1024; c++){
+      values[l][c%1024][iEnt] = wf6[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
+  }
 
-    for (int l = 24; l < 32; l++){
-      for (int c = cidx6[3], d = 0; c < cidx6[3]+1024; c++){
-        values[l][c%1024][iEnt] = wf6[l][d]; //values extracted from the waveform
-        values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - capmean[l][c%1024]; // removes the offset
-        d++;
-      }
+  for (int l = 16; l < 24; l++){
+    for (int c = cidx6[2], d = 0; c < cidx6[2]+1024; c++){
+      values[l][c%1024][iEnt] = wf6[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
     }
-    }
+  }
 
-      for (int l = 0; l < 32; l++){
-        for (int iEnt = 0; iEnt < nEntries6; iEnt++) {
-          for (int m = 0; m < 1024; m++){
-            if (values[l][m][iEnt] > maxval[l][iEnt]){
-              maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
-            }
-          }
-          maxmean[l][6] += maxval[l][iEnt]; //Here 0->1
-        //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+  for (int l = 24; l < 32; l++){
+    for (int c = cidx6[3], d = 0; c < cidx6[3]+1024; c++){
+      values[l][c%1024][iEnt] = wf6[l][d]; //values extracted from the waveform
+      values[l][c%1024][iEnt] = values[l][c%1024][iEnt] - baseline[l][c%1024]; // removes the offset
+      d++;
+    }
+  }
+  }
+
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries6; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values[l][m][iEnt] > maxval[l][iEnt]){
+          maxval[l][iEnt] = values[l][m][iEnt]; //Find the maximum for a particular entry
         }
-        maxmean[l][6] = maxmean[l][6]/nEntries6; //find the mean of maximas across entries //Here 0->1
       }
+      maxmean[l][6] += maxval[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean[l][6] = maxmean[l][6]/nEntries6; //find the mean of maximas across entries
+  }
 
-      auto canvas = new TCanvas("canvas", "First canvas", 1000, 800);
-      canvas->Divide(8,4);
-      float maxmeanCh[7] = {0.0};
-      //canvas->Divide(2,4);
-      TGraph *g[32];
-      	//int j = 2;
-      for (int j=0; j<32; j++) {
-          for (int readingNum=0; readingNum<7; readingNum++) {
-          maxmeanCh[readingNum] = maxmean[j][readingNum];
-          }
-       //cout<<j<<endl;
-       canvas->cd(j+1);
-       g[j] = new TGraph(7, inpTemp, maxmeanCh);
-       g[j]->Draw("AC*");
-
+  for (int l = 0; l < 32; l++){
+    for (int iEnt = 0; iEnt < nEntries6; iEnt++) {
+      for (int m = 0; m < 1024; m++){
+        if (values1[l][m][iEnt] > maxval1[l][iEnt]){
+          maxval1[l][iEnt] = values1[l][m][iEnt]; //Find the maximum for a particular entry
+        }
       }
-
+      maxmean1[l][6] += maxval1[l][iEnt];
+    //cout << l << " " << iEnt << " " << maxval[l][iEnt] << endl;
+    }
+    maxmean1[l][6] = maxmean1[l][6]/nEntries6; //find the mean of maximas across entries
+  }
+    auto canvas = new TCanvas("canvas", "Mean of maximum voltages v/s temperature", 1440, 900);
+    canvas->Divide(4,2);
+    float maxmeanCh[7] = {0.0};
+    //float maxmeanCh1[7] = {0.0};
+    //canvas->Divide(2,4);
+    TGraph *g[8];
+    	//int j = 2;
+    for (int j=0; j<8; j++) {
+      for (int readingNum=0; readingNum<7; readingNum++) {
+        maxmeanCh[readingNum] = maxmean[j][readingNum];
+        inpTemp[readingNum] = tempin[j][readingNum];
+        //maxmeanCh1[readingNum] = maxmean1[j][readingNum];
+      }
+     //cout<<j<<endl;
+      canvas->cd(j+1);
+      g[j] = new TGraph(7, inpTemp, maxmeanCh);
+      g[j]->Draw("AL*");
+  }
 }
