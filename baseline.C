@@ -61,7 +61,7 @@
   for (int l = 0; l < 32; l++){
     for (int m = 0; m < 1024; m++) {
       sprintf(buffer, "h[%d][%d]", l, m);
-      h[l][m] = new TH1I(buffer, buffer, 500, 600, 1200);
+      h[l][m] = new TH1I(buffer, buffer, 300, 600, 1200);
       for (int iEnt = 0; iEnt < nEntries; iEnt++) {
         h[l][m]->Fill(capval[l][m][iEnt]);
       }
@@ -76,11 +76,11 @@
 //Create baseline by averaging over 1000 samples.
   for (int l = 0; l < 32; l++) {
     for (int m = 0; m < 1024; m++) {
-      // for (int iEnt = 2000; iEnt < 3000; iEnt ++) {
-      //   baseline[l][m] += capval[l][m][iEnt];
-      // }
-      //baseline[l][m] = (baseline[l][m]/1000) - max[l][m];
-      baseline[l][m] = capval[l][m][3000] - max[l][m];
+      for (int iEnt = 0; iEnt < 10000; iEnt ++) {
+        baseline[l][m] += (capval[l][m][iEnt] - max[l][m]);
+      }
+      baseline[l][m] = (baseline[l][m]/10000);// - max[l][m];
+      //baseline[l][m] = capval[l][m][3000] - max[l][m];
     }
   }
 
@@ -88,14 +88,14 @@
   //  gROOT->Reset();
   // Open the file for writing
 
-  TFile myFile1("baselinesamples2.root"); // Open the file
+  TFile myFile1("calibration.root"); // Open the file
   TTree* myTree1 = (TTree*) myFile1.Get("tree"); // Get the tree from the file
 
   int nEntries1 = myTree1->GetEntries(); // Get the number of entries in this tree
   int wf1[32][1024];        // An array of the wf values
   int cidx1[4];             // An array of the cidx values
-  int oldval[32][1024][10000];
-  int newval[32][1024][10000];
+  int oldval[32][1024][200];
+  int newval[32][1024][200];
 
   myTree1->SetBranchAddress("wf",wf1);
   myTree1->SetBranchAddress("cidx",cidx1);
@@ -133,7 +133,7 @@
     }
    for (int l = 0; l < 32; l++){
     for (int m = 0; m < 1024; m++) {
-      newval[l][m][iEnt] = oldval[l][m][iEnt] - max[l][m];
+      newval[l][m][iEnt] = oldval[l][m][iEnt]- max[l][m];
       newval[l][m][iEnt] = newval[l][m][iEnt] - baseline[l][m];
     }
    }
@@ -147,28 +147,32 @@
   canvas->Divide(8,4);
   TGraph *g[32];
 
-  for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
-   x[i-cidx1[0]] = i-cidx1[0];
-  }
+  // for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
+  //  x[i-cidx1[0]] = i-cidx1[0];
+  // }
   for (int j=0; j<32; j++) {
     if (j<8) {
       for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
-        y[i-cidx1[0]] = newval[j][i%1024][150]; //j: channel, 150: event no
+        x[i-cidx1[0]] = i-cidx1[0];
+        y[i-cidx1[0]] = newval[j][i%1024][100]; //j: channel, 150: event no
       }
     }
     else if (j<16) {
       for (Int_t i=cidx1[1];i<1024+cidx1[1];i++) {
-        y[i-cidx1[1]] = newval[j][i%1024][150]; //j: channel, 150: event no
+        x[i-cidx1[1]] = i-cidx1[1];
+        y[i-cidx1[1]] = newval[j][i%1024][100]; //j: channel, 150: event no
       }
     }
     else if (j<24) {
       for (Int_t i=cidx1[2];i<1024+cidx1[2];i++) {
-        y[i-cidx1[2]] = newval[j][i%1024][150]; //j: channel, 150: event no
+        x[i-cidx1[2]] = i-cidx1[2];
+        y[i-cidx1[2]] = newval[j][i%1024][100]; //j: channel, 150: event no
       }
     }
     else if (j<32) {
       for (Int_t i=cidx1[3];i<1024+cidx1[3];i++) {
-        y[i-cidx1[3]] = newval[j][i%1024][150]; //j: channel, 150: event no
+        x[i-cidx1[3]] = i-cidx1[3];
+        y[i-cidx1[3]] = newval[j][i%1024][100]; //j: channel, 150: event no
       }
     }
    canvas->cd(j+1);
