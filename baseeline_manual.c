@@ -12,8 +12,8 @@
   int nEntries = myTree->GetEntries(); // Get the number of entries in this tree
   int wf[32][1024];        // An array of the wf values
   int cidx[4];       // An array of the cidx values
-  int capval[32][1024][10000];
-  float baseline[32][1024] = {0.0};
+  int capval[32][1024][2000];
+  float capmax[32][1024] = {0.0};
 
   // Linking the local variables to the tree branches
 
@@ -52,37 +52,62 @@
     }
   }
 
+
+
   int max[32][1024] = {0};
+  for (int l = 0; l < 1; l++) { //Channel
+    for (int m = 0; m<1024; m++) { //Capacitor
+      std::map <int, int> cap;
+      std::map <int, int> cap1;
+      //cap = new std::map<int, int>;
+      for(int iEnt = 0; iEnt < 2000; iEnt++) {
+        if (!cap.count(capval[l][m][iEnt])) { //Create map for one capacitor of a channel
+          cap[capval[l][m][iEnt]] = 1;
+        }
+        else {
+          cap[capval[l][m][iEnt]]= cap[capval[l][m][iEnt]] + 1;
+        }
+      //  cout << l << " " << iEnt << " " << cap[capval[l][m][iEnt]] << endl;
+      }
+      for(int i=0; i<40;i++){
+        cap1[902+5*i] = 0; //Keep tabs
+        for(int j=0;j<5;j++){
+          cap1[902+5*i] = cap1[902+5*i] + cap[902+5*i+j];
+        }
+        if (cap1[902+5*i] > max[l][m]) {
+          max[l][m] = cap1[902+5*i];
+        }
+      }
+    }
+  }
+
+
+  /*
+  for (int l = 0; l < 32; l++){
+    for (int m = 0; m < 1024; m++) {
+      for (int iEnt = 0; iEnt < nEntries; iEnt++) {
+        capmean[l][m] += capval[l][m][iEnt];
+      }
+      capmean[l][m] = capmean[l][m]/nEntries;
+    }
+  }
+  */
+/*
   int binmax = 0;
   char buffer [8];
   TH1I *h[32][1024];
-  // auto canvas1 = new TCanvas("canvas1", "Calibrated Pulse", 1400, 990);
-  // canvas1->Divide(4,2);
   for (int l = 0; l < 32; l++){
+    //h[l] = new TH1I[1024];
     for (int m = 0; m < 1024; m++) {
-      sprintf(buffer, "h[%d][%d]", l, m);
-      h[l][m] = new TH1I(buffer, buffer, 500, 600, 1200);
       for (int iEnt = 0; iEnt < nEntries; iEnt++) {
-        h[l][m]->Fill(capval[l][m][iEnt]);
+        sprintf(buffer, "h[%d][%d]", l, m);
+        h[l][m] = new TH1I(buffer, buffer, 400, 0, 1200);
+        h[l][m].Fill(capval[l][m][iEnt]);
       }
-      binmax = h[l][m]->GetMaximumBin();
-      max[l][m] = h[l][m]->GetXaxis()->GetBinCenter(binmax);
-      // if (m<8) {
-      //   canvas1->cd(m+1);
-      //   h[l][m]->Draw();
-      // }
+      binmax = h[l][m].GetMaximumBin();
+      capmax[l][m] = h[l][m]->GetXaxis()->GetBinCenter(binmax);
     }
-  }
-//Create baseline by averaging over 1000 samples.
-  for (int l = 0; l < 32; l++) {
-    for (int m = 0; m < 1024; m++) {
-      // for (int iEnt = 2000; iEnt < 3000; iEnt ++) {
-      //   baseline[l][m] += capval[l][m][iEnt];
-      // }
-      //baseline[l][m] = (baseline[l][m]/1000) - max[l][m];
-      baseline[l][m] = capval[l][m][3000] - max[l][m];
-    }
-  }
+  }*/
 
 
   //  gROOT->Reset();
@@ -94,11 +119,12 @@
   int nEntries1 = myTree1->GetEntries(); // Get the number of entries in this tree
   int wf1[32][1024];        // An array of the wf values
   int cidx1[4];             // An array of the cidx values
-  int oldval[32][1024][10000];
-  int newval[32][1024][10000];
+  float oldval[32][1024][2000];
+  float newval[32][1024][2000];
 
-  myTree1->SetBranchAddress("wf",wf1);
-  myTree1->SetBranchAddress("cidx",cidx1);
+  myTree1->SetBranchAddress("wf",        wf1);
+  //myTree1->SetBranchAddress("event",        event);
+  myTree1->SetBranchAddress("cidx",       cidx1);
 
   for (int iEnt = 0; iEnt < nEntries1; iEnt++) {
     myTree1->GetEntry(iEnt); // Gets the next entry (filling the linked variables)
@@ -131,10 +157,10 @@
         d++;
       }
     }
-   for (int l = 0; l < 32; l++){
+   for (int l = 0; l < 1; l++){
     for (int m = 0; m < 1024; m++) {
-      newval[l][m][iEnt] = oldval[l][m][iEnt] - max[l][m];
-      newval[l][m][iEnt] = newval[l][m][iEnt] - baseline[l][m];
+    newval[l][m][iEnt] = oldval[l][m][iEnt] - max[l][m];
+    //if(l==0 && iEnt==2) cout<< l << " " << m << " " << iEnt <<" " << oldval[l][m][iEnt] << endl;
     }
    }
 
@@ -143,34 +169,19 @@
    float x[1024];
    float y[1024];
 
-  auto canvas = new TCanvas("canvas", "Calibrated Pulse", 1400, 990);
+  auto canvas = new TCanvas("canvas", "First canvas", 1000, 800);
   canvas->Divide(8,4);
   TGraph *g[32];
 
+
+  //for (int j=0; j<16; j++) {
   for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
    x[i-cidx1[0]] = i-cidx1[0];
   }
   for (int j=0; j<32; j++) {
-    if (j<8) {
-      for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
-        y[i-cidx1[0]] = newval[j][i%1024][150]; //j: channel, 150: event no
-      }
-    }
-    else if (j<16) {
-      for (Int_t i=cidx1[1];i<1024+cidx1[1];i++) {
-        y[i-cidx1[1]] = newval[j][i%1024][150]; //j: channel, 150: event no
-      }
-    }
-    else if (j<24) {
-      for (Int_t i=cidx1[2];i<1024+cidx1[2];i++) {
-        y[i-cidx1[2]] = newval[j][i%1024][150]; //j: channel, 150: event no
-      }
-    }
-    else if (j<32) {
-      for (Int_t i=cidx1[3];i<1024+cidx1[3];i++) {
-        y[i-cidx1[3]] = newval[j][i%1024][150]; //j: channel, 150: event no
-      }
-    }
+   for (Int_t i=cidx1[0];i<1024+cidx1[0];i++) {
+    y[i-cidx1[0]] = newval[j][i%1024][1007]; //j: channel, 1007: event no
+   }
    canvas->cd(j+1);
    g[j] = new TGraph(1024, x, y);
    g[j]->Draw("AC*");
